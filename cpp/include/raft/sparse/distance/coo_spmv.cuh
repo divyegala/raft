@@ -94,10 +94,10 @@ inline void balanced_coo_pairwise_generalized_spmv(
   strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func,
               write_func, chunk_size);
   } else {
-  // hash_strategy<value_idx, value_t, threads_per_block> strategy(config_);
-  mask_row_it<value_idx> a_indptr(config_.a_indptr,
-  config_.a_nrows);
-  bloom_filter_strategy<value_idx, value_t, threads_per_block> strategy(config_, a_indptr);
+  hash_strategy<value_idx, value_t, threads_per_block> strategy(config_);
+  // mask_row_it<value_idx> a_indptr(config_.a_indptr,
+  // config_.a_nrows);
+  // bloom_filter_strategy<value_idx, value_t, threads_per_block> strategy(config_, a_indptr);
   strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func,
               write_func, chunk_size);
   }
@@ -156,10 +156,10 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
   strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
                   write_func, chunk_size);
   } else {
-  // hash_strategy<value_idx, value_t, threads_per_block> strategy(config_);
-  mask_row_it<value_idx> b_indptr(config_.b_indptr,
-  config_.b_nrows);
-  bloom_filter_strategy<value_idx, value_t, threads_per_block> strategy(config_, b_indptr);
+  hash_strategy<value_idx, value_t, threads_per_block> strategy(config_);
+  // mask_row_it<value_idx> b_indptr(config_.b_indptr,
+  // config_.b_nrows);
+  // bloom_filter_strategy<value_idx, value_t, threads_per_block> strategy(config_, b_indptr);
   strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
                   write_func, chunk_size);
   }
