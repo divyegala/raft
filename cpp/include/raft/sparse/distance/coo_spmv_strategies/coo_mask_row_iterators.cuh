@@ -48,7 +48,7 @@ class mask_row_it {
                                          bool &first_a_chunk,
                                          bool &last_a_chunk) {
     start_offset = full_indptr[row_idx];
-    stop_offset = full_indptr[row_idx + 1];
+    stop_offset = full_indptr[row_idx + 1] - 1;
   }
 
   __device__ constexpr inline void get_indices_boundary(
@@ -89,7 +89,7 @@ template <typename value_idx>
 class chunked_mask_row_it : public mask_row_it<value_idx> {
  public:
   chunked_mask_row_it(const value_idx *full_indptr_, const value_idx &n_rows_,
-                      value_idx *mask_row_idx_, int row_chunk_size_,
+                      value_idx *mask_row_idx_, value_idx row_chunk_size_,
                       const cudaStream_t stream_)
     : mask_row_it<value_idx>(full_indptr_, n_rows_, mask_row_idx_),
       row_chunk_size(row_chunk_size_),
@@ -114,8 +114,10 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
                            n_chunks_per_row.begin() + 1);
 
     n_chunks_per_row_ptr = n_chunks_per_row.data().get();
+    // raft::print_device_vector("n_chunks_per_row", n_chunks_per_row_ptr, this->n_rows + 1, std::cout);
     raft::update_host(&total_row_blocks, n_chunks_per_row_ptr + this->n_rows, 1,
                       stream);
+    // std::cout << "total_row_blocks: " << total_row_blocks << std::endl;
     // CUML_LOG_DEBUG("total blocks for wide rows: %d", total_row_blocks);
     // printv(n_chunks_per_row, "n_chunks_per_row");
 
@@ -125,7 +127,9 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
   }
 
   __device__ inline value_idx get_row_idx(const int &n_blocks_nnz_b) {
-    return this->mask_row_idx[chunk_indices_ptr[blockIdx.x / n_blocks_nnz_b]];
+    auto row_idx = this->mask_row_idx[chunk_indices_ptr[blockIdx.x / n_blocks_nnz_b]];
+    // if (threadIdx.x == 0) printf("row_idx: %d", row_idx);
+    return row_idx;
   }
 
   __device__ inline void get_row_offsets(const value_idx &row_idx,
@@ -148,7 +152,8 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
 
     last_a_chunk = stop_offset >= final_stop_offset;
     stop_offset =
-      last_a_chunk ? final_stop_offset : stop_offset;
+      last_a_chunk ? final_stop_offset - 1: stop_offset - 1;
+    // printf("row_idx: %d, relative_chunk: %d, start_offset: %d, stop_offset: %d\n", row_idx, relative_chunk, start_offset, stop_offset);
   }
 
   __device__ inline void get_indices_boundary(
@@ -158,6 +163,7 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
     bool &last_a_chunk) {
     start_index = first_a_chunk ? start_index : indices[start_offset];
     stop_index = last_a_chunk ? stop_index : indices[stop_offset];
+    // printf("row_idx: %d, start_index: %d, stop_index: %d, first_a_chunk: %d, last_a_chunk: %d\n", row_idx, start_index, stop_index, first_a_chunk, last_a_chunk);
   }
 
   __device__ inline bool check_indices_bounds(value_idx &start_index_a,
@@ -171,11 +177,11 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
   const cudaStream_t stream;
   rmm::device_vector<value_idx> n_chunks_per_row, chunk_indices;
   value_idx *n_chunks_per_row_ptr, *chunk_indices_ptr;
-  int &row_chunk_size, *row_chunk_size_d;
+  value_idx &row_chunk_size, *row_chunk_size_d;
 
   struct n_chunks_per_row_functor {
    public:
-    n_chunks_per_row_functor(const value_idx *indptr_, int *row_chunk_size_)
+    n_chunks_per_row_functor(const value_idx *indptr_, value_idx *row_chunk_size_)
       : indptr(indptr_), row_chunk_size(row_chunk_size_) {}
 
     __host__ __device__ value_idx operator()(const value_idx &i) {
@@ -184,7 +190,7 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
     }
 
     const value_idx *indptr;
-    int *row_chunk_size;
+    value_idx *row_chunk_size;
   };
 
   void fill_chunk_indices() {

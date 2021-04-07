@@ -57,7 +57,7 @@ void unexpanded_lp_distances(
  *  Ref: https://github.com/rapidsai/cuml/issues/3371
  */
 
-  if (config_->a_ncols < max_cols_per_block<value_idx, value_t>()) {
+  // if (config_->a_ncols < max_cols_per_block<value_idx, value_t>()) {
     // TODO: Use n_cols to set shared memory and threads per block
     // for max occupancy.
     // Ref: https://github.com/rapidsai/cuml/issues/3371
@@ -81,12 +81,12 @@ void unexpanded_lp_distances(
       out_dists, *config_, coo_rows.data(), product_func, accum_func,
       write_func);
 
-  } else {
-    // TODO: Find max nnz and set smem based on this value.
-    // Ref: https://github.com/rapidsai/cuml/issues/3371
-    generalized_csr_pairwise_semiring<value_idx, value_t>(
-      out_dists, *config_, product_func, accum_func);
-  }
+  // } else {
+  //   // TODO: Find max nnz and set smem based on this value.
+  //   // Ref: https://github.com/rapidsai/cuml/issues/3371
+  //   generalized_csr_pairwise_semiring<value_idx, value_t>(
+  //     out_dists, *config_, product_func, accum_func);
+  // }
 }
 
 /**
