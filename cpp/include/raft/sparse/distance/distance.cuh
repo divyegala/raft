@@ -60,7 +60,8 @@ static const std::unordered_set<raft::distance::DistanceType> supportedDistance{
   raft::distance::DistanceType::JensenShannon,
   raft::distance::DistanceType::KLDivergence,
   raft::distance::DistanceType::RusselRaoExpanded,
-  raft::distance::DistanceType::DiceExpanded};
+  raft::distance::DistanceType::DiceExpanded,
+  raft::distance::DistanceType::CorrelationExpanded};
 
 /**
  * Compute pairwise distances between A and B, using the provided

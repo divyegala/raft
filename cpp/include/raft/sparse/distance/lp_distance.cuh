@@ -223,7 +223,7 @@ class hamming_unexpanded_distances_t : public distances_t<value_t> {
     unexpanded_lp_distances<value_idx, value_t>(out_dists, config_, NotEqual(),
                                                 Sum(), AtomicAdd());
 
-    value_idx n_cols = 1 / config_->a_ncols;
+    value_idx n_cols = 1.0 / config_->a_ncols;
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
       [=] __device__(value_t input) { return input * n_cols; },
