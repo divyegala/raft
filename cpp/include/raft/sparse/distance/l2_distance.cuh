@@ -96,14 +96,19 @@ __global__ void compute_correlation_warp_kernel(
   if (i >= n_rows || j >= n_cols) return;
 
   value_t dot = C[(size_t)i * n_cols + j];
-  value_t Q_mu = Q_norms[i];
-  value_t R_mu = R_norms[j];
+  value_t Q_l1 = Q_norms[i];
+  value_t R_l1 = R_norms[j];
 
-  value_t Q_sigma = sqrt((Q_sq_norms[i] - (Q_mu * Q_mu)));
-  value_t R_sigma = sqrt((R_sq_norms[j] - (R_mu * R_mu)));
+  value_t Q_l2 = Q_sq_norms[i];
+  value_t R_l2 = R_sq_norms[j];
 
-  // correct for small instabilities
-  C[(size_t)i * n_cols + j] = 1 - (dot - (Q_mu * R_mu) / (Q_sigma * R_sigma));
+  value_t numer = n_cols * dot - (Q_l1 * R_l1);
+  value_t R_denom = n_cols * R_l2 - (R_l1 * R_l1);
+  value_t Q_denom = n_cols * Q_l2 - (Q_l1 * R_l1);
+
+  value_t denom = sqrt(R_denom * Q_denom);
+
+  return 1 - (numer / denom);
 }
 
 
@@ -166,11 +171,11 @@ void compute_corr(value_t *out, const value_idx *Q_coo_rows,
                 cusparseHandle_t handle,
                 std::shared_ptr<raft::mr::device::allocator> alloc,
                 cudaStream_t stream) {
-  // sum_sq for std dev
+  // sum_sq
   raft::mr::device::buffer<value_t> Q_sq_norms(alloc, stream, m);
   raft::mr::device::buffer<value_t> R_sq_norms(alloc, stream, n);
 
-  // sum for mean
+  // sum
   raft::mr::device::buffer<value_t> Q_norms(alloc, stream, m);
   raft::mr::device::buffer<value_t> R_norms(alloc, stream, n);
 
@@ -193,24 +198,6 @@ void compute_corr(value_t *out, const value_idx *Q_coo_rows,
     Q_norms.data(), Q_coo_rows, Q_data, Q_nnz);
   compute_row_sum_kernel<<<raft::ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
     R_norms.data(), R_coo_rows, R_data, R_nnz);
-
-  value_t n_cols_div = 1.0 / n_cols;
-  raft::linalg::unaryOp<value_t>(
-    Q_sq_norms.data(), Q_sq_norms.data(), m,
-    [=] __device__(value_t input) { return input * n_cols_div; },
-    stream);
-  raft::linalg::unaryOp<value_t>(
-    Q_norms.data(), Q_norms.data(), m,
-    [=] __device__(value_t input) { return input * n_cols_div; },
-    stream);
-  raft::linalg::unaryOp<value_t>(
-    R_sq_norms.data(), R_sq_norms.data(), n,
-    [=] __device__(value_t input) { return input * n_cols_div; },
-    stream);
-  raft::linalg::unaryOp<value_t>(
-    R_norms.data(), R_norms.data(), n,
-    [=] __device__(value_t input) { return input * n_cols_div; },
-    stream);
 
   compute_correlation(out, Q_sq_norms.data(), R_sq_norms.data(),
                       Q_norms.data(),  R_norms.data(), m, n, stream);
@@ -278,8 +265,8 @@ class correlation_expanded_distances_t : public distances_t<value_t> {
 
     compute_corr(
       out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
-      b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows, config_->b_ncols,
-      config_->handle, config_->allocator, config_->stream);
+      b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
+      config_->b_ncols, config_->handle, config_->allocator, config_->stream);
   }
 
   ~correlation_expanded_distances_t() = default;
@@ -438,10 +425,11 @@ class russelrao_expanded_distances_t : public distances_t<value_t> {
 
     ip_dists.compute(out_dists);
 
-    value_idx n_cols = 1 / config_->a_ncols;
+    value_t n_cols = config_->a_ncols;
+    value_t n_cols_inv = 1.0 / n_cols;
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return (n_cols - input) * n_cols; },
+      [=] __device__(value_t input) { return (n_cols - input) * n_cols_inv; },
       config_->stream);
   }
 
