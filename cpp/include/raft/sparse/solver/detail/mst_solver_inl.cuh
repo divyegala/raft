@@ -42,6 +42,8 @@
 #include <thrust/unique.h>
 
 #include <iostream>
+#include <chrono>
+using namespace std::chrono;
 
 namespace raft::sparse::solver {
 
@@ -122,15 +124,17 @@ Graph_COO<vertex_t, edge_t, weight_t> MST_solver<vertex_t, edge_t, weight_t, alt
   RAFT_EXPECTS(indices != nullptr, "Null indices.");
   RAFT_EXPECTS(weights != nullptr, "Null weights.");
 
+  auto max_mst_edges = symmetrize_output ? 2 * v - 2 : v - 1;
+
+  Graph_COO<vertex_t, edge_t, weight_t> mst_result(max_mst_edges, stream);
+
   // Alterating the weights
   // this is done by identifying the lowest cost edge weight gap that is not 0, call this theta.
   // For each edge, add noise that is less than theta. That is, generate a random number in the
   // range [0.0, theta) and add it to each edge weight.
+  cudaStreamSynchronize(stream);
+  auto start = high_resolution_clock::now();
   alteration();
-
-  auto max_mst_edges = symmetrize_output ? 2 * v - 2 : v - 1;
-
-  Graph_COO<vertex_t, edge_t, weight_t> mst_result(max_mst_edges, stream);
 
   // Boruvka original formulation says "while more than 1 supervertex remains"
   // Here we adjust it to support disconnected components (spanning forest)
@@ -166,6 +170,10 @@ Graph_COO<vertex_t, edge_t, weight_t> MST_solver<vertex_t, edge_t, weight_t, alt
     // copy this iteration's results and store
     prev_mst_edge_count.set_value_async(curr_mst_edge_count, stream);
   }
+  cudaStreamSynchronize(stream);
+  auto stop = high_resolution_clock::now();
+	auto duration = duration_cast<microseconds>(stop - start);
+	std::cout << "RAPIDS Finished in: " << duration.count() << std::endl;
 
   // result packaging
   mst_result.n_edges = mst_edge_count.value(stream);
