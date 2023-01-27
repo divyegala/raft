@@ -171,17 +171,17 @@ Graph_COO<vertex_t, edge_t, weight_t> MST_solver<vertex_t, edge_t, weight_t, alt
     prev_mst_edge_count.set_value_async(curr_mst_edge_count, stream);
   }
   mst_result.n_edges = mst_edge_count.value(stream);
-  auto s = thrust::make_counting_iterator(0);
-  auto e = thrust::make_counting_iterator(e);
-  auto cost = thrust::reduce(handle.get_thrust_policy(), s, e, 0, [weights, edges_found = mst_edge.data()] __device__ (auto const i1, auto const i2) {
+  auto s_c = thrust::make_counting_iterator(0);
+  auto e_c = thrust::make_counting_iterator(e);
+  auto cost = thrust::reduce(handle.get_thrust_policy(), s_c, e_c, 0, [wt = this->weights, edges_found = this->mst_edge.data()] __device__ (auto const i1, auto const i2) {
     auto const e1_present = edges_found[i1];
     auto const e2_present = edges_found[i2];
-    weight_t const w1 = 0, w2 = 0;
+    weight_t w1 = 0, w2 = 0;
     if (e1_present) {
-      w1 = weights[i1];
+      w1 = wt[i1];
     }
     if (e2_present) {
-      w2 = weights[i2];
+      w2 = wt[i2];
     }
     return w1 + w2;
   });
