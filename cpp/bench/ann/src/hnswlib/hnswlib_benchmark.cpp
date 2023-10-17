@@ -45,6 +45,7 @@ void parse_search_param(const nlohmann::json& conf,
 {
   param.ef = conf.at("ef");
   if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
+  if (conf.contains("base_layer_only")) { param.base_layer_only = conf.at("base_layer_only"); }
 }
 
 template <typename T, template <typename> class Algo>

@@ -66,6 +66,7 @@ class HnswLib : public ANN<T> {
   struct SearchParam : public AnnSearchParam {
     int ef;
     int num_threads = omp_get_num_procs();
+    bool base_layer_only = false;
   };
 
   HnswLib(Metric metric, int dim, const BuildParam& param);
@@ -161,6 +162,8 @@ void HnswLib<T>::set_search_param(const AnnSearchParam& param_)
 {
   auto param     = dynamic_cast<const SearchParam&>(param_);
   appr_alg_->ef_ = param.ef;
+  appr_alg_->base_layer_only = param.base_layer_only;
+  std::cout << "HERE: " << appr_alg_->base_layer_only;
 
   if (!thread_pool_ || num_threads_ != param.num_threads) {
     num_threads_ = param.num_threads;
