@@ -78,6 +78,7 @@ def run_build_and_search(
     search,
     k,
     batch_size,
+    mode="throughput",
 ):
     for executable, ann_executable_path, algo in executables_to_run.keys():
         # Need to write temporary configuration
@@ -104,15 +105,14 @@ def run_build_and_search(
                 "--build",
                 "--data_prefix=" + dataset_path,
                 "--benchmark_out_format=json",
+                "--benchmark_counters_tabular=true",
                 "--benchmark_out="
                 + f"{os.path.join(build_folder, f'{algo}.json')}",
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
             cmd = cmd + [temp_conf_filepath]
-            print(cmd)
-            p = subprocess.Popen(cmd)
-            p.wait()
+            subprocess.run(cmd, check=True)
 
         if search:
             search_folder = os.path.join(legacy_result_folder, "search")
@@ -128,13 +128,12 @@ def run_build_and_search(
                 "--benchmark_out_format=json",
                 "--benchmark_out="
                 + f"{os.path.join(search_folder, f'{algo}.json')}",
+                "--mode=%s" % mode,
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
             cmd = cmd + [temp_conf_filepath]
-            print(cmd)
-            p = subprocess.Popen(cmd)
-            p.wait()
+            subprocess.run(cmd, check=True)
 
         os.remove(temp_conf_filepath)
 
@@ -215,6 +214,14 @@ def main():
         action="store_true",
     )
 
+    parser.add_argument(
+        "-m",
+        "--search-mode",
+        help="run search in 'latency' (measure individual batches) or "
+        "'throughput' (pipeline batches and measure end-to-end) mode",
+        default="throughput",
+    )
+
     args = parser.parse_args()
 
     # If both build and search are not provided,
@@ -226,6 +233,7 @@ def main():
         build = args.build
         search = args.search
 
+    mode = args.search_mode
     k = args.count
     batch_size = args.batch_size
 
@@ -243,15 +251,14 @@ def main():
         )
     conf_filename = conf_filepath.split("/")[-1]
     conf_filedir = "/".join(conf_filepath.split("/")[:-1])
-    dataset_name = conf_filename.replace(".json", "")
     dataset_path = args.dataset_path
     if not os.path.exists(conf_filepath):
         raise FileNotFoundError(conf_filename)
-    if not os.path.exists(os.path.join(args.dataset_path, dataset_name)):
-        raise FileNotFoundError(os.path.join(args.dataset_path, dataset_name))
 
     with open(conf_filepath, "r") as f:
         conf_file = json.load(f)
+
+    dataset_name = conf_file["dataset"]["name"]
 
     executables_to_run = dict()
     # At least one named index should exist in config file
@@ -321,6 +328,7 @@ def main():
         search,
         k,
         batch_size,
+        mode,
     )
 
 
