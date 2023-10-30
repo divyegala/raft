@@ -161,16 +161,10 @@ void HnswLib<T>::build(const T* dataset, size_t nrow, cudaStream_t)
 template <typename T>
 void HnswLib<T>::set_search_param(const AnnSearchParam& param_)
 {
-<<<<<<< HEAD
-  auto param     = dynamic_cast<const SearchParam&>(param_);
-  appr_alg_->ef_ = param.ef;
-  appr_alg_->base_layer_only = param.base_layer_only;
-  std::cout << "HERE: " << appr_alg_->base_layer_only;
-=======
   auto param        = dynamic_cast<const SearchParam&>(param_);
   appr_alg_->ef_    = param.ef;
   metric_objective_ = param.metric_objective;
->>>>>>> upstream/branch-23.12
+  appr_alg_->base_layer_only = param.base_layer_only;
 
   bool use_pool = (metric_objective_ == Objective::LATENCY && param.num_threads > 1) &&
                   (!thread_pool_ || num_threads_ != param.num_threads);
