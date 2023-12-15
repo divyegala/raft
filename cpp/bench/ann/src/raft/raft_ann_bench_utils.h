@@ -85,14 +85,11 @@ class configured_raft_resources {
          [](device_mr_t* mr) {
            if (mr == nullptr) { return; }
            auto* cur_mr = dynamic_cast<device_mr_t*>(rmm::mr::get_current_device_resource());
-           if (cur_mr != nullptr && (*cur_mr) == (*mr)) {
-             // Normally, we'd always want to set the rmm resource back to the upstream of the pool
-             // here. However, we expect some implementations may be buggy and mess up the rmm
-             // resource, especially during development. This extra check here adds a little bit of
-             // resilience: let the program crash/fail somewhere else rather than in the destructor
-             // of the shared pointer.
-             rmm::mr::set_current_device_resource(mr->get_upstream());
-           }
+           // No function in `libraft.so` should be using globally static function
+           // `rmm::mr::set_current_device_resource`. It should be safe to directly set
+           // the current device resource to the upstream of the pool memory resourced
+           // initialized in the constructor of this class.
+           rmm::mr::set_current_device_resource(mr->get_upstream());
            delete mr;
          }}}
   {
